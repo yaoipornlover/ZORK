@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZORK - Multiverse Nexus Terminal</title>
+    <style>
+        :root {
+            --bg-color: #08090c;
+            --term-bg: rgba(13, 15, 20, 0.96);
+            --drawer-bg: rgba(18, 22, 31, 0.98);
+            --border-color: #2e3440;
+            --text-main: #d8dee9;
+            --text-muted: #616e88;
+            --gold: #e5c07b;
+            --cyan: #56b6c2;
+            --green: #98c379;
+            --red: #e06c75;
+            --purple: #c678dd;
+            --blue: #61afef;
+            --orange: #d19a66;
+            --accent-glow: rgba(97, 175, 239, 0.15);
+            --font-stack: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Source Code Pro', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(20, 24, 33, 0.8) 0%, rgba(8, 9, 12, 1) 100%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+        .viewport-wrapper {
+            display: flex;
+            width: 100%;
+            max-width: 1400px;
+            height: 92vh;
+            gap: 16px;
+            position: relative;
+        }
+
+        .terminal-window {
+            flex: 1;
+            background: var(--term-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px var(--accent-glow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .sims-drawer {
+            width: 360px;
+            height: 100%;
+            background: var(--drawer-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: -10px 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(16px);
+            transform: translateX(120%);
+            opacity: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            z-index: 10;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .sims-drawer.active {
+            position: relative;
+            transform: translateX(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .terminal-header, .drawer-header {
+            background: #1e222a;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #282c34;
+            user-select: none;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .btn-close { background-color: #ff5f56; border: 1px solid #e0443e; }
+        .btn-minimize { background-color: #ffbd2e; border: 1px solid #fea028; }
+        .btn-maximize { background-color: #27c93f; border: 1px solid #1aab29; }
+
+        .window-title {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .system-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .stat-badge {
+            background: #21252b;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #282c34;
+        }
+
+        .stat-badge span {
+            color: var(--green);
+            font-weight: bold;
+        }
+
+        .map-hud-container {
+            background: #0f1117;
+            border-bottom: 1px solid #282c34;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .map-hud-title {
+            font-size: 0.8rem;
+            color: var(--gold);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .terminal-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: #3b4252 #0f1117;
+        }
+
+        .terminal-body::-webkit-scrollbar, .drawer-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .terminal-body::-webkit-scrollbar-track, .drawer-body::-webkit-scrollbar-track {
+            background: #0f1117;
+        }
+        .terminal-body::-webkit-scrollbar-thumb, .drawer-body::-webkit-scrollbar-thumb {
+            background: #3b4252;
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            line-height: 1.6;
+            font-size: 0.95rem;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .cmd-echo {
+            color: var(--blue);
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .room-title {
+            color: var(--gold);
+            font-size: 1.15rem;
+            font-weight: bold;
+            border-bottom: 1px dashed var(--gold);
+            padding-bottom: 4px;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .npc-name { color: var(--purple); font-weight: bold; }
+        .item-name { color: var(--green); font-weight: bold; }
+        .highlight { color: var(--cyan); }
+        .warning { color: var(--red); }
+        .system-msg { color: var(--text-muted); font-style: italic; }
+
+        .speech-bubble {
+            background: rgba(198, 120, 221, 0.08);
+            border-left: 3px solid var(--purple);
+            padding: 10px 14px;
+            margin: 6px 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .system-toast {
+            color: var(--cyan);
+            font-size: 0.85rem;
+            border-left: 3px solid var(--cyan);
+            padding-left: 8px;
+            margin: 4px 0;
+        }
+
+        .input-line {
+            padding: 12px 20px;
+            background: #161821;
+            border-top: 1px solid #21252b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prompt {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .prompt .user { color: var(--green); }
+        .prompt .at { color: var(--text-muted); }
+        .prompt .host { color: var(--blue); }
+        .prompt .path { color: var(--gold); }
+        .prompt .symbol { color: var(--purple); }
+
+        .cmd-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            font-size: 0.95rem;
+        }
+
+        .quick-bar {
+            padding: 10px 20px;
+            background: #111319;
+            border-top: 1px solid #1e222a;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .btn-action {
+            background: #21252b;
+            border: 1px solid #2c313a;
+            color: var(--text-main);
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            font-family: var(--font-stack);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background: #2c313a;
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .drawer-body {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .avatar-container {
+            width: 100%;
+            height: 220px;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            background: #08090c;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .avatar-fallback {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--purple);
+            text-shadow: 0 0 15px var(--purple);
+            text-transform: uppercase;
+        }
+
+        .sims-metric-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .metric-header {
+            font-size: 1rem;
+            color: var(--purple);
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 4px;
+        }
+
+        .metric-row {
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-value {
+            color: var(--gold);
+            font-weight: bold;
+        }
+
+        .tag-container {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 4px 0;
+        }
+
+        .tag-chip {
+            font-size: 0.65rem !important;
+            font-weight: 800 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            display: inline-block;
+        }
+
+        .tag-chip.tag-heroico { color: #00dfff; background: #051e2b; border: 1px solid #00dfff; }
+        .tag-chip.tag-edgy { color: #d670ff; background: #21092b; border: 1px solid #d670ff; }
+        .tag-chip.tag-caotico { color: #ff4d4d; background: #2b0909; border: 1px solid #ff4d4d; }
+        .tag-chip.tag-alegre { color: #50fa7b; background: #0a2612; border: 1px solid #50fa7b; }
+        .tag-chip.tag-sabio_serio { color: #8be9fd; background: #0a232a; border: 1px solid #8be9fd; }
+        .tag-chip.tag-default { color: #f1fa8c; background: #232519; border: 1px solid #f1fa8c; }
+
+        table.cmd-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+        }
+
+        table.cmd-table th, table.cmd-table td {
+            border: 1px solid #282c34;
+            padding: 6px 10px;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        table.cmd-table th {
+            background: #21252b;
+            color: var(--gold);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="viewport-wrapper">
+        <div class="terminal-window" id="main-terminal">
+            <div class="terminal-header">
+                <div class="window-controls">
+                    <span class="control-btn btn-close"></span>
+                    <span class="control-btn btn-minimize"></span>
+                    <span class="control-btn btn-maximize"></span>
+                </div>
+                <div class="window-title">
+                    <span>⚡</span> zork@multiverse-nexus: ~/palace_of_desires (bash)
+                </div>
+                <div class="system-stats">
+                    <div class="stat-badge">AFECTO GLOBAL: <span id="stat-afecto">0%</span></div>
+                    <div class="stat-badge">TURNOS: <span id="stat-turnos">0</span></div>
+                </div>
+            </div>
+
+            <div class="map-hud-container">
+                <div class="map-hud-title">📡 RADAR MULTIVERSAL EN TIEMPO REAL</div>
+                <canvas id="map-canvas" width="280" height="90" style="background: #08090c; border: 1px solid #3b4252; border-radius: 4px;"></canvas>
+            </div>
+
+            <div class="terminal-body" id="terminal-body"></div>
+
+            <div class="input-line">
+                <div class="prompt">
+                    <span class="user">player</span><span class="at">@</span><span class="host">zork-palace</span>:<span class="path">~/nexus</span><span class="symbol">$</span>
+                </div>
+                <input type="text" id="cmd-input" class="cmd-input" placeholder="Escribe un comando o presiona TAB para autocompletar..." autofocus autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="quick-bar">
+                <button class="btn-action" onclick="execQuick('mirar')">👁️ mirar</button>
+                <button class="btn-action" onclick="execQuickSims()">💎 info sims</button>
+                <button class="btn-action" onclick="execQuick('lugares_cita')">🌹 lugares de cita</button>
+                <button class="btn-action" onclick="execQuick('cosas')">🎒 cosas</button>
+                <button class="btn-action" onclick="execQuick('interacciones')">💬 interacciones</button>
+                <button class="btn-action" onclick="execQuick('ir norte')">⬆️ norte</button>
+                <button class="btn-action" onclick="execQuick('ir sur')">⬇️ sur</button>
+                <button class="btn-action" onclick="execQuick('ir este')">➡️ este</button>
+                <button class="btn-action" onclick="execQuick('ir oeste')">⬅️ oeste</button>
+                <button class="btn-action" onclick="execQuick('savegame slot1')">💾 guardar</button>
+                <button class="btn-action" onclick="execQuick('loadgame slot1')">📂 cargar</button>
+                <button class="btn-action" onclick="execQuick('ayuda')">❓ ayuda</button>
+            </div>
+        </div>
+
+        <div class="sims-drawer" id="sims-drawer">
+            <div class="drawer-header">
+                <div class="window-title">
+                    <span>💎</span> MONITOR SIMS SECUNDARIO
+                </div>
+                <button class="btn-action" style="padding: 2px 8px;" onclick="toggleSimsDrawer(false)">✕ Cerrar</button>
+            </div>
+            <div class="drawer-body" id="drawer-body">
+                <div class="avatar-container" id="avatar-box">
+                    <div class="avatar-fallback" id="avatar-fallback">?</div>
+                    <img id="avatar-img" class="avatar-img" src="" alt="Personaje" style="display:none;" onerror="handleAvatarError()">
+                </div>
+                <div class="sims-metric-card" id="sims-metrics">
+                    <div class="metric-header" id="drawer-npc-name">PERSONAJE</div>
+                    <div class="metric-row"><span>Estado Mental:</span> <span class="metric-value" id="drawer-mental">-</span></div>
+                    <div class="metric-row"><span>Relación:</span> <span class="metric-value" id="drawer-rel">0 / 100</span></div>
+                    <div style="margin-top:4px;">
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">Agrado Emocional:</div>
+                        <div id="drawer-progress" style="font-size:0.85rem;">⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛</div>
+                    </div>
+                    <div style="margin-top: 6px; font-size: 0.8rem;">
+                        <strong>Outfit:</strong> <span id="drawer-outfit" style="color:var(--text-main);">-</span>
+                    </div>
+                    <div style="margin-top: 6px; font-size: 0.8rem;">
+                        <span style="color:var(--green);">👍 Gustos:</span> <span id="drawer-likes">-</span><br>
+                        <span style="color:var(--red);">👎 Disgustos:</span> <span id="drawer-dislikes">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/sims.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
